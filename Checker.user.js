@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         B站用户成分指示器
 // @namespace    https://github.com/klxf
-// @version      2.6.7
+// @version      2.6.8
 // @description  适配新版评论区 Shadow DOM，支持远程规则库、游戏/主播库、可点击成分标签与粉丝牌名称匹配
 // @author       klxf, trychen, miayoshi（原作者）；Shadow DOM 修复版
 // @license      GPLv3
@@ -16,6 +16,8 @@
 // @connect      api.live.bilibili.com
 // @connect      raw.githubusercontent.com
 // @connect      ghproxy.net
+// @downloadURL  https://ghproxy.net/https://raw.githubusercontent.com/Amazing-ikun/BilibiliUserChecker/main/Checker.user.js
+// @updateURL    https://ghproxy.net/https://raw.githubusercontent.com/Amazing-ikun/BilibiliUserChecker/main/Checker.user.js
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM_registerMenuCommand
@@ -2038,7 +2040,7 @@
         try {
             const target = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
             target.__BSPC__ = {
-                version: '2.6.7',
+                version: '2.6.8',
                 setDebug: setDebug,
                 scan: scheduleScan,
                 refreshRules: function () { return refreshRules(true); },
@@ -2050,7 +2052,7 @@
             };
         } catch (e) {}
         refreshRules(false);
-        console.info('[B站用户成分指示器] v2.6.7 已启动 | 规则库',
+        console.info('[B站用户成分指示器] v2.6.8 已启动 | 规则库',
             rulesMeta.version, rulesMeta.count, '条 | 来源', rulesMeta.source);
     }
 

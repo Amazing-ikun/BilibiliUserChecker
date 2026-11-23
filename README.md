@@ -1,4 +1,4 @@
-# BilibiliUserChecker（Fork 维护版）
+# BilibiliUserChecker
 
 在 [klxf/BilibiliUserChecker](https://github.com/klxf/BilibiliUserChecker) 2.4 基础上重写的 B 站「查成分」油猴脚本，适配新版评论区（Web Components + Shadow DOM），并把规则库与代码分离，便于长期维护。
 
@@ -6,7 +6,7 @@
 
 ## 当前状态
 
-- 脚本版本：**2.6.7**（`Checker.user.js`，内置 238 条规则）
+- 脚本版本：**2.6.8**（`Checker.user.js`，内置 238 条规则）
 - 规则库：**2026.11.23**（`rules/rules.json`，238 条：147 款游戏 + 91 个主播/UP 主）
 - 已实现：Shadow DOM 递归扫描、按钮预显示（点击才查询）、动态关键词 / 转发原文 / 关注 / 粉丝牌（名称与 UID）/ 个性装扮（挂件与勋章牌）的加权判定、精简来源提示、手动标签（可选规则图标）、悬浮面板拖拽关闭、可点击标签跳转、主播不显示头像、标签过多折叠（3 个 + 「更多」小窗）、远程规则库（镜像 → 直连 → 缓存 → 内置）与 ECDSA 签名校验。
 - 图标策略：**只从 B 站 CDN 加载**，加载失败直接移除 `<img>`，不留空白占位；不维护仓库图标文件。
@@ -31,11 +31,11 @@ README.md
 
 ## 安装
 
-1. 安装 Tampermonkey（Edge / Chrome）。
-2. 将 `Checker.user.js` 拖入浏览器或新建脚本粘贴内容。
+1. 浏览器（Chrome 或 Edge）安装 Tampermonkey 插件
+2. 在“添加新脚本”内选择 `Checker.user.js`
 3. 打开 B 站视频页，评论区用户名旁会出现「查成分」。
 
-注意：本仓库暂未配置 `@updateURL`，更新脚本需重新安装文件。
+注意：脚本已配置 `@updateURL`（经 ghproxy 镜像检查更新）；镜像不可用时请手动重新安装最新 `Checker.user.js`。
 
 ## 规则库格式
 
@@ -132,17 +132,6 @@ python tools/embed_rules.py
   python tools/embed_rules.py
   # 提交 rules/rules.json、rules/rules.json.sig、Checker.user.js
   ```
-
-## 后续目标
-
-1. [x] 规则 schema 升级（category / showIcon / link / 粉丝牌名称匹配），兼容旧设置；
-2. [x] 扩充游戏库、游戏图标、主播名称库（主播不显示头像）；
-3. [x] 成分标签可点击，跳转 B 站官方账号（手动标签跳转用户空间）；
-4. [x] 手动添加标签时从现有规则图标中选择（2.6.2）；
-5. [x] 远程规则库拉取与缓存；
-6. [x] 标签 ≥4 个时折叠为 3 个 + 「更多」小窗（2.6.5）；
-7. [—] 不实现 GitHub 图标兜底（决定：只从 B 站 CDN 加载，失败移除图标）；
-8. [x] 远程规则的签名与完整性校验（2.6.5）；
 
 ## Fork / 发布流程
 
