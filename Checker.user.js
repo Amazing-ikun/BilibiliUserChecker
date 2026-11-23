@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         B站用户成分指示器
 // @namespace    https://github.com/klxf
-// @version      2.6.6
+// @version      2.6.7
 // @description  适配新版评论区 Shadow DOM，支持远程规则库、游戏/主播库、可点击成分标签与粉丝牌名称匹配
 // @author       klxf, trychen, miayoshi（原作者）；Shadow DOM 修复版
 // @license      GPLv3
@@ -899,6 +899,8 @@
         }
         const wrapper = document.createElement('span');
         wrapper.className = 'bili-composition-tags';
+        wrapper.style.position = 'relative';
+        wrapper.style.zIndex = '10';
 
         if (!state.found || !state.found.length) {
             const none = document.createElement('span');
@@ -947,6 +949,30 @@
         icon.addEventListener('error', function () { icon.remove(); });
         icon.src = url;
         tag.appendChild(icon);
+    }
+
+    function installTagClickGuard() {
+        if (window.__BSPC_TAG_GUARD__) return;
+        window.__BSPC_TAG_GUARD__ = true;
+        function findMore(event) {
+            const path = event.composedPath ? event.composedPath() : [];
+            for (const node of path) {
+                if (node && node.classList && node.classList.contains('bili-composition-more')) return node;
+            }
+            return null;
+        }
+        ['pointerdown', 'mousedown', 'pointerup'].forEach(function (type) {
+            window.addEventListener(type, function (event) {
+                if (findMore(event)) event.stopImmediatePropagation();
+            }, true);
+        });
+        window.addEventListener('click', function (event) {
+            const more = findMore(event);
+            if (!more) return;
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            if (more.parentElement) openMorePanel(more.parentElement);
+        }, true);
     }
 
     function openMorePanel(wrapper) {
@@ -1983,6 +2009,7 @@
 
     function init() {
         ensureUiStyle();
+        installTagClickGuard();
         try { GM_registerMenuCommand('成分检查设置', openSettings); } catch (e) {}
         try {
             GM_registerMenuCommand('切换诊断日志（开/关）', function () { setDebug(!debug); });
@@ -2011,7 +2038,7 @@
         try {
             const target = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
             target.__BSPC__ = {
-                version: '2.6.6',
+                version: '2.6.7',
                 setDebug: setDebug,
                 scan: scheduleScan,
                 refreshRules: function () { return refreshRules(true); },
@@ -2023,7 +2050,7 @@
             };
         } catch (e) {}
         refreshRules(false);
-        console.info('[B站用户成分指示器] v2.6.6 已启动 | 规则库',
+        console.info('[B站用户成分指示器] v2.6.7 已启动 | 规则库',
             rulesMeta.version, rulesMeta.count, '条 | 来源', rulesMeta.source);
     }
 
