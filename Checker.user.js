@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         B站用户成分指示器
 // @namespace    https://github.com/klxf
-// @version      2.6.1
+// @version      2.6.2
 // @description  适配新版评论区 Shadow DOM，支持远程规则库、游戏/主播库、可点击成分标签与粉丝牌名称匹配
 // @author       klxf, trychen, miayoshi（原作者）；Shadow DOM 修复版
 // @license      GPLv3
@@ -29,6 +29,8 @@
 
     const STORE_KEY = 'checkers_v2';
     const LEGACY_KEY = 'settings';
+    const MANUAL_KEY = 'manual_tags_v2';
+    const MANUAL_LEGACY_KEY = 'manual_tags_v1';
     const RULES_CACHE_KEY = 'rules_cache_v2';
     const RULES_MAX_AGE = 24 * 60 * 60 * 1000;
     const RULES_RETRY_AGE = 60 * 60 * 1000;
@@ -350,24 +352,36 @@
         return attempt(0);
     }
 
+    function sanitizeManualTag(item) {
+        if (!item || !/^\d+$/.test(String(item.uid || ''))) return null;
+        const uid = String(item.uid);
+        const name = String(item.name || '').trim().slice(0, 50);
+        if (!name) return null;
+        let icon = typeof item.icon === 'string' ? item.icon.trim() : '';
+        if (/^http:\/\//i.test(icon)) icon = 'https://' + icon.slice(7);
+        if (!/^https:\/\//i.test(icon)) icon = '';
+        const iconSource = typeof item.iconSource === 'string' ? item.iconSource.trim().slice(0, 50) : '';
+        return { uid: uid, name: name, icon: icon, iconSource: iconSource };
+    }
+
     function loadManualTags() {
         try {
-            const saved = GM_getValue('manual_tags_v1');
-            if (!Array.isArray(saved)) return [];
-            const out = [];
-            for (const item of saved) {
-                if (!item || !/^\d+$/.test(String(item.uid || ''))) continue;
-                const name = String(item.name || '').trim();
-                if (name) out.push({ uid: String(item.uid), name: name });
+            const saved = GM_getValue(MANUAL_KEY);
+            if (Array.isArray(saved)) {
+                return saved.map(sanitizeManualTag).filter(Boolean);
             }
-            return out;
-        } catch (e) {
-            return [];
-        }
+        } catch (e) {}
+        try {
+            const legacy = GM_getValue(MANUAL_LEGACY_KEY);
+            if (Array.isArray(legacy)) {
+                return legacy.map(sanitizeManualTag).filter(Boolean);
+            }
+        } catch (e) {}
+        return [];
     }
 
     function saveManualTags() {
-        try { GM_setValue('manual_tags_v1', manualTags); } catch (e) {}
+        try { GM_setValue(MANUAL_KEY, manualTags); } catch (e) {}
         userCache.clear();
     }
 
@@ -376,14 +390,16 @@
         return manualTags.filter(function (item) { return item.uid === id; });
     }
 
-    function addManualTag(uid, name) {
+    function addManualTag(uid, name, icon, iconSource) {
         const id = String(uid || '');
         const text = String(name || '').trim();
         if (!/^\d+$/.test(id) || !text) return false;
         for (const item of manualTags) {
             if (item.uid === id && item.name === text) return false;
         }
-        manualTags.push({ uid: id, name: text });
+        const tag = sanitizeManualTag({ uid: id, name: text, icon: icon, iconSource: iconSource });
+        if (!tag) return false;
+        manualTags.push(tag);
         saveManualTags();
         return true;
     }
@@ -627,7 +643,9 @@
                 seenNames.add(item.name);
                 found.push({
                     checker: { displayName: item.name, displayIcon: '' },
-                    reason: { source: 'manual', detail: '' }
+                    reason: { source: 'manual', detail: '' },
+                    icon: item.icon,
+                    iconSource: item.iconSource
                 });
             }
             for (const checker of checkers) {
@@ -747,7 +765,7 @@
         } else {
             for (const item of state.found) {
                 if (item.reason && item.reason.source === 'manual') {
-                    wrapper.appendChild(makeManualTag(item.checker.displayName, target.uid));
+                    wrapper.appendChild(makeManualTag(item.checker.displayName, target.uid, item.icon, item.iconSource));
                 } else {
                     wrapper.appendChild(makeTag(item.checker, item.reason));
                 }
@@ -769,6 +787,17 @@
         badge.style.cursor = 'default';
         badge.style.opacity = '0.6';
         if (target.onDone) target.onDone();
+    }
+
+    function attachTagIcon(tag, url) {
+        if (!/^https:\/\//i.test(url || '')) return;
+        const icon = document.createElement('img');
+        icon.alt = '';
+        icon.loading = 'lazy';
+        icon.style.cssText = 'width:14px;height:14px;border-radius:50%;display:block;';
+        icon.addEventListener('error', function () { icon.remove(); });
+        icon.src = url;
+        tag.appendChild(icon);
     }
 
     function makeTag(checker, reason) {
@@ -798,20 +827,14 @@
                 tag.style.boxShadow = 'inset 0 0 0 1px rgba(255,255,255,.65)';
             }
         }
-        if (checker.showIcon !== false && checker.displayIcon) {
-            const icon = document.createElement('img');
-            icon.src = checker.displayIcon;
-            icon.style.cssText = 'width:14px;height:14px;border-radius:50%;display:block;';
-            icon.addEventListener('error', function () { icon.remove(); });
-            tag.appendChild(icon);
-        }
+        if (checker.showIcon !== false) attachTagIcon(tag, checker.displayIcon);
         const name = document.createElement('span');
         name.textContent = checker.displayName;
         tag.appendChild(name);
         return tag;
     }
 
-    function makeManualTag(name, uid) {
+    function makeManualTag(name, uid, icon, iconSource) {
         const hasLink = /^\d+$/.test(String(uid || ''));
         const tag = document.createElement(hasLink ? 'a' : 'span');
         if (hasLink) {
@@ -822,12 +845,186 @@
             tag.addEventListener('click', function (event) { event.stopPropagation(); });
         }
         tag.className = 'bili-composition-tag bili-composition-tag--manual';
-        tag.textContent = name;
-        tag.title = '手动标注' + (hasLink ? '；点击前往用户空间' : '');
+        tag.title = '手动标注'
+            + (iconSource ? '；图标来自「' + iconSource + '」' : '')
+            + (hasLink ? '；点击前往用户空间' : '');
         tag.style.cssText = FONT
             + 'display:inline-flex;align-items:center;gap:2px;margin:0 3px;padding:0 5px;border-radius:4px;'
             + 'background:linear-gradient(135deg,#ff9800,#e53935);color:#fff;vertical-align:middle;';
+        attachTagIcon(tag, icon);
+        const label = document.createElement('span');
+        label.textContent = name;
+        tag.appendChild(label);
         return tag;
+    }
+
+    function openTagEditor(presetUid, onSave) {
+        if (document.getElementById('bili-composition-tag-editor')) return;
+        let selected = null;
+
+        const overlay = el('div',
+            'position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,.55);'
+            + 'display:flex;align-items:flex-start;justify-content:center;' + FONT);
+        overlay.id = 'bili-composition-tag-editor';
+        const panel = el('div',
+            'margin-top:8vh;width:min(640px,94vw);max-height:84vh;display:flex;flex-direction:column;'
+            + 'background:#fff;color:#222;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.35);'
+            + 'padding:16px 18px;');
+
+        const header = el('div', 'display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;');
+        header.appendChild(el('div', 'font-size:16px;font-weight:700;', '手动添加标签'));
+        const closeBtn = el('button',
+            'border:none;background:#eee;border-radius:6px;padding:4px 10px;cursor:pointer;', '关闭');
+        header.appendChild(closeBtn);
+        panel.appendChild(header);
+
+        const uidInput = el('input',
+            'width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid #ccc;border-radius:6px;margin-bottom:8px;');
+        uidInput.placeholder = '用户 UID';
+        uidInput.value = presetUid || '';
+        if (presetUid) uidInput.readOnly = true;
+        panel.appendChild(uidInput);
+
+        const nameInput = el('input',
+            'width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid #ccc;border-radius:6px;margin-bottom:8px;');
+        nameInput.placeholder = '标签名称';
+        panel.appendChild(nameInput);
+
+        const searchInput = el('input',
+            'width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid #ccc;border-radius:6px;margin-bottom:8px;');
+        searchInput.placeholder = '搜索规则图标（只列 showIcon=true 的规则）';
+        panel.appendChild(searchInput);
+
+        const preview = el('div', 'display:flex;align-items:center;gap:6px;margin-bottom:8px;color:#555;');
+        panel.appendChild(preview);
+
+        const list = el('div',
+            'flex:1;min-height:120px;max-height:42vh;overflow:auto;display:grid;'
+            + 'grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px;'
+            + 'border-top:1px solid #eee;padding-top:8px;');
+        panel.appendChild(list);
+
+        const message = el('div', 'color:#e53935;min-height:18px;margin-top:8px;');
+        panel.appendChild(message);
+
+        const actions = el('div', 'display:flex;justify-content:flex-end;gap:8px;');
+        const cancelBtn = el('button',
+            'border:none;background:#eee;border-radius:6px;padding:6px 14px;cursor:pointer;', '取消');
+        const confirmBtn = el('button',
+            'border:none;background:#07beff;color:#04222e;border-radius:6px;padding:6px 14px;'
+            + 'cursor:pointer;font-weight:600;', '确定');
+        actions.appendChild(cancelBtn);
+        actions.appendChild(confirmBtn);
+        panel.appendChild(actions);
+
+        const iconRules = checkers.filter(function (checker) {
+            return checker.showIcon !== false && /^https:\/\//i.test(checker.displayIcon || '');
+        }).sort(function (a, b) {
+            return a.displayName.localeCompare(b.displayName, 'zh');
+        });
+
+        function close() {
+            document.removeEventListener('keydown', onKey);
+            overlay.remove();
+        }
+        function onKey(event) {
+            if (event.key === 'Escape') close();
+        }
+        document.addEventListener('keydown', onKey);
+        closeBtn.addEventListener('click', close);
+        cancelBtn.addEventListener('click', close);
+
+        function renderPreview() {
+            preview.textContent = '';
+            if (!selected) {
+                preview.appendChild(document.createTextNode('图标：无图标'));
+                return;
+            }
+            preview.appendChild(document.createTextNode('图标：'));
+            const image = document.createElement('img');
+            image.alt = '';
+            image.loading = 'lazy';
+            image.src = selected.icon;
+            image.style.cssText = 'width:20px;height:20px;border-radius:50%;';
+            image.addEventListener('error', function () { image.remove(); });
+            preview.appendChild(image);
+            preview.appendChild(document.createTextNode(selected.source));
+        }
+
+        function selectItem(icon, source) {
+            selected = icon ? { icon: icon, source: source } : null;
+            renderPreview();
+            renderList();
+        }
+
+        function renderList() {
+            list.textContent = '';
+            const term = searchInput.value.trim().toLowerCase();
+            const none = el('div',
+                'display:flex;align-items:center;gap:6px;padding:6px;border:1px solid #eee;'
+                + 'border-radius:8px;cursor:pointer;', '无图标');
+            none.style.borderColor = selected ? '#eee' : '#07beff';
+            none.addEventListener('click', function (event) { event.stopPropagation(); selectItem('', ''); });
+            list.appendChild(none);
+            let count = 0;
+            for (const rule of iconRules) {
+                if (term) {
+                    const names = [rule.displayName].concat(rule.aliases || []);
+                    if (!names.some(function (name) { return name.toLowerCase().indexOf(term) !== -1; })) continue;
+                }
+                count++;
+                const item = el('div',
+                    'display:flex;align-items:center;gap:6px;padding:5px 6px;border:1px solid #eee;'
+                    + 'border-radius:8px;cursor:pointer;min-width:0;');
+                if (selected && selected.icon === rule.displayIcon) item.style.borderColor = '#07beff';
+                const image = document.createElement('img');
+                image.alt = '';
+                image.loading = 'lazy';
+                image.src = rule.displayIcon;
+                image.style.cssText = 'width:24px;height:24px;border-radius:50%;flex:none;';
+                image.addEventListener('error', function () { image.remove(); });
+                item.appendChild(image);
+                item.appendChild(el('span',
+                    'font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;', rule.displayName));
+                item.addEventListener('click', function (event) {
+                    event.stopPropagation();
+                    selectItem(rule.displayIcon, rule.displayName);
+                });
+                list.appendChild(item);
+            }
+            if (!count) {
+                list.appendChild(el('div', 'color:#888;padding:6px;', '没有匹配的图标'));
+            }
+        }
+
+        searchInput.addEventListener('input', renderList);
+
+        confirmBtn.addEventListener('click', function () {
+            const uid = uidInput.value.trim();
+            const name = nameInput.value.trim();
+            if (!/^\d+$/.test(uid)) {
+                message.textContent = 'UID 必须是数字';
+                return;
+            }
+            if (!name) {
+                message.textContent = '标签名称不能为空';
+                return;
+            }
+            const icon = selected ? selected.icon : '';
+            const iconSource = selected ? selected.source : '';
+            if (!addManualTag(uid, name, icon, iconSource)) {
+                message.textContent = '该 UID 下已存在同名标签';
+                return;
+            }
+            close();
+            if (onSave) onSave({ uid: uid, name: name, icon: icon, iconSource: iconSource });
+        });
+
+        renderPreview();
+        renderList();
+        overlay.appendChild(panel);
+        document.body.appendChild(overlay);
+        nameInput.focus();
     }
 
     function makeManualAdd(uid, container) {
@@ -846,15 +1043,12 @@
         add.addEventListener('click', function (event) {
             event.preventDefault();
             event.stopPropagation();
-            const name = window.prompt('为 UID ' + uid + ' 手动添加标签：');
-            if (!name || !name.trim()) return;
-            if (addManualTag(uid, name)) {
+            openTagEditor(uid, function (saved) {
                 const none = container.querySelector('.bili-composition-none');
                 if (none) none.remove();
-                container.insertBefore(makeManualTag(name.trim(), uid), add);
-            } else {
-                add.title = '标签为空或已存在';
-            }
+                container.insertBefore(
+                    makeManualTag(saved.name, saved.uid, saved.icon, saved.iconSource), add);
+            });
         });
         return add;
     }
@@ -1050,11 +1244,10 @@
             event.stopPropagation();
             const currentUid = panel.dataset.uid;
             if (!currentUid) return;
-            const name = window.prompt('为 UID ' + currentUid + ' 手动添加标签：');
-            if (!name || !name.trim()) return;
-            if (addManualTag(currentUid, name)) {
-                result.insertBefore(makeManualTag(name.trim(), currentUid), result.firstChild);
-            }
+            openTagEditor(currentUid, function (saved) {
+                result.insertBefore(
+                    makeManualTag(saved.name, saved.uid, saved.icon, saved.iconSource), result.firstChild);
+            });
         });
 
         document.body.appendChild(panel);
@@ -1135,11 +1328,10 @@
                 event.stopPropagation();
                 const uid = panel.dataset.uid;
                 if (!uid) return;
-                const name = window.prompt('为 UID ' + uid + ' 手动添加标签：');
-                if (!name || !name.trim()) return;
-                if (addManualTag(uid, name)) {
-                    result.insertBefore(makeManualTag(name.trim(), uid), result.firstChild);
-                }
+                openTagEditor(uid, function (saved) {
+                    result.insertBefore(
+                        makeManualTag(saved.name, saved.uid, saved.icon, saved.iconSource), result.firstChild);
+                });
             });
 
             document.body.appendChild(panel);
@@ -1239,17 +1431,11 @@
 
         const manualBox = el('div', 'margin-bottom:12px;padding:8px 10px;border:1px solid #eee;border-radius:8px;');
         manualBox.appendChild(el('div', 'font-weight:600;margin-bottom:6px;', '手动标签（按 UID）'));
-        const manualRow = el('div', 'display:flex;gap:8px;flex-wrap:wrap;');
-        const manualUid = el('input', 'flex:1;min-width:110px;padding:5px 8px;border:1px solid #ccc;border-radius:6px;');
-        manualUid.placeholder = '用户 UID';
-        const manualName = el('input', 'flex:1;min-width:110px;padding:5px 8px;border:1px solid #ccc;border-radius:6px;');
-        manualName.placeholder = '标签名称';
-        const manualAdd = el('button', 'border:none;background:#ff9800;color:#fff;border-radius:6px;padding:5px 12px;cursor:pointer;', '添加');
-        manualRow.appendChild(manualUid);
-        manualRow.appendChild(manualName);
-        manualRow.appendChild(manualAdd);
+        const manualAdd = el('button',
+            'border:none;background:#ff9800;color:#fff;border-radius:6px;padding:5px 12px;cursor:pointer;',
+            '添加手动标签');
         const manualList = el('div', 'margin-top:6px;');
-        manualBox.appendChild(manualRow);
+        manualBox.appendChild(manualAdd);
         manualBox.appendChild(manualList);
         panel.appendChild(manualBox);
 
@@ -1261,8 +1447,21 @@
             }
             manualTags.forEach(function (item) {
                 const line = el('div', 'display:flex;align-items:center;gap:8px;padding:3px 0;');
-                line.appendChild(el('div', 'flex:1;word-break:break-all;', item.uid + ' — ' + item.name));
-                const del = el('button', 'border:none;background:#ffebee;color:#c62828;border-radius:6px;padding:2px 8px;cursor:pointer;', '删除');
+                if (item.icon) {
+                    const image = document.createElement('img');
+                    image.alt = '';
+                    image.loading = 'lazy';
+                    image.src = item.icon;
+                    image.style.cssText = 'width:20px;height:20px;border-radius:50%;flex:none;';
+                    image.addEventListener('error', function () { image.remove(); });
+                    line.appendChild(image);
+                }
+                const label = el('div', 'flex:1;word-break:break-all;', item.uid + ' — ' + item.name);
+                if (item.iconSource) label.title = '图标来自「' + item.iconSource + '」';
+                line.appendChild(label);
+                const del = el('button',
+                    'border:none;background:#ffebee;color:#c62828;border-radius:6px;padding:2px 8px;cursor:pointer;',
+                    '删除');
                 del.addEventListener('click', function () {
                     removeManualTag(item.uid, item.name);
                     renderManualList();
@@ -1272,14 +1471,7 @@
             });
         }
         manualAdd.addEventListener('click', function () {
-            if (addManualTag(manualUid.value.trim(), manualName.value.trim())) {
-                manualUid.value = '';
-                manualName.value = '';
-                renderManualList();
-            } else {
-                manualList.appendChild(el('div', 'color:#e53935;', 'UID 必须是数字，标签不能为空且不能重复'));
-                setTimeout(function () { renderManualList(); }, 2000);
-            }
+            openTagEditor(null, function () { renderManualList(); });
         });
         renderManualList();
 
@@ -1557,7 +1749,7 @@
         try {
             const target = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
             target.__BSPC__ = {
-                version: '2.6.1',
+                version: '2.6.2',
                 setDebug: setDebug,
                 scan: scheduleScan,
                 refreshRules: function () { return refreshRules(true); },
@@ -1567,7 +1759,7 @@
             };
         } catch (e) {}
         refreshRules(false);
-        console.info('[B站用户成分指示器] v2.6.1 已启动 | 规则库',
+        console.info('[B站用户成分指示器] v2.6.2 已启动 | 规则库',
             rulesMeta.version, rulesMeta.count, '条 | 来源', rulesMeta.source);
     }
 
