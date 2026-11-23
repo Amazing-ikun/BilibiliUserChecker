@@ -1,4 +1,16 @@
+# Build cache / Python
 .cache/
 __pycache__/
 *.pyc
+
+# Secrets
 *-private.pem
+
+# IDE / editors
+.idea/
+.vscode/
+.claude/
+
+# OS junk
+Thumbs.db
+.DS_Store
