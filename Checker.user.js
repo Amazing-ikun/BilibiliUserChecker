@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         B站用户成分指示器
 // @namespace    https://github.com/klxf
-// @version      2.6.0
+// @version      2.6.1
 // @description  适配新版评论区 Shadow DOM，支持远程规则库、游戏/主播库、可点击成分标签与粉丝牌名称匹配
 // @author       klxf, trychen, miayoshi（原作者）；Shadow DOM 修复版
 // @license      GPLv3
@@ -433,12 +433,20 @@
         return false;
     }
 
+    function isOwnUI(node) {
+        return !!(node && node.closest && node.closest(
+            '.bili-composition-tag, .bili-composition-tags, .bili-composition-badge, '
+            + '.bili-composition-manual-add, #bili-composition-panel, '
+            + '#bili-composition-uploader, #bili-composition-settings'
+        ));
+    }
+
     function findCandidates(root) {
         const out = [];
         let anchors = [];
         try { anchors = root.querySelectorAll('a[href*="space.bilibili.com/"]'); } catch (e) { anchors = []; }
         for (const anchor of anchors) {
-            if (!inComment(anchor)) continue;
+            if (isOwnUI(anchor) || !inComment(anchor)) continue;
             const match = (anchor.getAttribute('href') || '').match(/space\.bilibili\.com\/(\d+)/);
             if (!match) continue;
             const text = (anchor.textContent || '').trim();
@@ -451,7 +459,7 @@
             named = root.querySelectorAll('[data-user-id], [data-usercard-mid], .user-name, .sub-user-name');
         } catch (e) { named = []; }
         for (const node of named) {
-            if (node.tagName === 'A') continue;
+            if (node.tagName === 'A' || isOwnUI(node)) continue;
             if (!inComment(node)) continue;
             if (node.querySelector('a[href*="space.bilibili.com/"]')) continue;
             const text = (node.textContent || '').trim();
@@ -1549,7 +1557,7 @@
         try {
             const target = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
             target.__BSPC__ = {
-                version: '2.6.0',
+                version: '2.6.1',
                 setDebug: setDebug,
                 scan: scheduleScan,
                 refreshRules: function () { return refreshRules(true); },
@@ -1559,7 +1567,7 @@
             };
         } catch (e) {}
         refreshRules(false);
-        console.info('[B站用户成分指示器] v2.6.0 已启动 | 规则库',
+        console.info('[B站用户成分指示器] v2.6.1 已启动 | 规则库',
             rulesMeta.version, rulesMeta.count, '条 | 来源', rulesMeta.source);
     }
 
