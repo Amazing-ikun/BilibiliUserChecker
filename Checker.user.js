@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         B站用户成分指示器
 // @namespace    https://github.com/klxf
-// @version      2.6.5
+// @version      2.6.6
 // @description  适配新版评论区 Shadow DOM，支持远程规则库、游戏/主播库、可点击成分标签与粉丝牌名称匹配
 // @author       klxf, trychen, miayoshi（原作者）；Shadow DOM 修复版
 // @license      GPLv3
@@ -985,7 +985,7 @@
         }
         for (const tag of tags) {
             const clone = tag.cloneNode(true);
-            clone.style.display = '';
+            clone.style.display = 'inline-flex';
             clone.style.margin = '2px 0';
             body.appendChild(clone);
         }
@@ -1002,7 +1002,7 @@
         }
         if (tags.length >= 4) {
             tags.forEach(function (tag, index) {
-                tag.style.display = index < 3 ? '' : 'none';
+                tag.style.display = index < 3 ? 'inline-flex' : 'none';
             });
             if (!more) {
                 more = document.createElement('span');
@@ -1023,7 +1023,7 @@
                 wrapper.insertBefore(more, addButton || null);
             }
         } else {
-            tags.forEach(function (tag) { tag.style.display = ''; });
+            tags.forEach(function (tag) { tag.style.display = 'inline-flex'; });
             if (more) more.remove();
         }
     }
@@ -2011,7 +2011,7 @@
         try {
             const target = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
             target.__BSPC__ = {
-                version: '2.6.5',
+                version: '2.6.6',
                 setDebug: setDebug,
                 scan: scheduleScan,
                 refreshRules: function () { return refreshRules(true); },
@@ -2023,7 +2023,7 @@
             };
         } catch (e) {}
         refreshRules(false);
-        console.info('[B站用户成分指示器] v2.6.5 已启动 | 规则库',
+        console.info('[B站用户成分指示器] v2.6.6 已启动 | 规则库',
             rulesMeta.version, rulesMeta.count, '条 | 来源', rulesMeta.source);
     }
 
