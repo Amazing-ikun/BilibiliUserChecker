@@ -6,11 +6,11 @@
 
 ## 当前状态
 
-- 脚本版本：**2.6.4**（`Checker.user.js`，内置 238 条规则）
+- 脚本版本：**2.6.5**（`Checker.user.js`，内置 238 条规则）
 - 规则库：**2026.11.23**（`rules/rules.json`，238 条：147 款游戏 + 91 个主播/UP 主）
-- 已实现：Shadow DOM 递归扫描、按钮预显示（点击才查询）、动态关键词 / 转发原文 / 关注 / 粉丝牌（名称与 UID）/ 个性装扮（挂件与勋章牌）的加权判定、精简来源提示、手动标签（可选规则图标）、悬浮面板拖拽关闭、可点击标签跳转、主播不显示头像、远程规则库（镜像 → 直连 → 缓存 → 内置）。
+- 已实现：Shadow DOM 递归扫描、按钮预显示（点击才查询）、动态关键词 / 转发原文 / 关注 / 粉丝牌（名称与 UID）/ 个性装扮（挂件与勋章牌）的加权判定、精简来源提示、手动标签（可选规则图标）、悬浮面板拖拽关闭、可点击标签跳转、主播不显示头像、标签过多折叠（3 个 + 「更多」小窗）、远程规则库（镜像 → 直连 → 缓存 → 内置）与 ECDSA 签名校验。
 - 图标策略：**只从 B 站 CDN 加载**，加载失败直接移除 `<img>`，不留空白占位；不维护仓库图标文件。
-- **尚未实现**：远程规则的签名/完整性校验（可选）。
+- 远程规则库使用 ECDSA P-256 签名校验；校验失败时回退缓存/内置规则。
 
 ## 目录结构
 
@@ -20,6 +20,9 @@ rules/rules.json       规则库数据（游戏 / 主播 / 图标 / 官方账号
 list.txt               规则库源数据（名称|UID，按分类标题分组）
 tools/build_rules.py   从 list.txt 生成 rules.json 的工具（会请求 B 站接口）
 tools/embed_rules.py   把 rules.json 注入 Checker.user.js 的内置规则区段
+tools/sign_rules.js    用 ECDSA 私钥生成 rules/rules.json.sig
+rules/rules.json.sig   规则库分离签名
+rules/public-key.pem   与脚本内置公钥一致，供审计
 LICENSE                GPLv3
 README.md
 ```
@@ -82,6 +85,13 @@ README.md
 - 主播规则（`showIcon=false`）的图标不会出现在选择器中；
 - 如确有需求（例如给主播手动配图、允许自定义图片 URL），可自行修改选择器/渲染逻辑实现相应配图功能，本项目不做内置支持。
 
+## 标签折叠（2.6.5）
+
+- 单个用户的成分标签 ≥4 个时，只显示前 3 个，其后显示胶囊「更多」；
+- 点击「更多」打开「成分标签」悬浮小窗（可拖动、可关闭），完整显示所有标签；
+- 小窗 `max-height: 50vh` + `overflow-y: auto`，**只有内容超出时才出现滚动条**；
+- 小窗里的标签仍可点击跳转，+手动按钮仍保留在原位。
+
 ## 重新生成规则库
 
 ```bash
@@ -106,6 +116,22 @@ python tools/embed_rules.py
 5. **展示**：设置面板显示规则库版本、条数、来源（远程 / 缓存 / 内置），支持「立即刷新规则库」，TM 菜单也有入口；
 6. **网络现实**：默认地址指向本 Fork 的 `raw.githubusercontent.com`，直接访问在你所在网络不可用，因此必须先尝试 `ghproxy.net` 镜像；仓库推送前远程会 404，此时使用内置 238 条规则。
 
+## 远程规则签名（2.6.5）
+
+- 签名文件 `rules/rules.json.sig`：ECDSA P-256 + SHA-256，签名对象是 **LF 归一化后的 UTF-8 字节**，格式为 base64（raw r||s）；
+- 公钥内置在 `Checker.user.js` 的 `RULES_PUBLIC_KEY_SPKI`，仓库 `rules/public-key.pem` 供审计；
+- 拉取规则时同时下载 `.sig`，验签失败或环境不支持 WebCrypto 时拒绝远程规则，回退缓存/内置；
+- 旧缓存如果没有 `verified: true` 会被丢弃并重新拉取；
+- 设置面板显示「签名已验证」以及最近一次刷新失败原因；
+- **私钥不在仓库内**：`D:/JetBrains/MyProject/BilibiliUserChecker-signing/rules-private.pem`（请自行备份，切勿提交）。私钥丢失后只能生成新密钥、更新脚本公钥并发布新版本；
+- 更新规则流程：
+  ```bash
+  python tools/build_rules.py --proxy http://127.0.0.1:7897
+  node tools/sign_rules.js --key D:/JetBrains/MyProject/BilibiliUserChecker-signing/rules-private.pem
+  python tools/embed_rules.py
+  # 提交 rules/rules.json、rules/rules.json.sig、Checker.user.js
+  ```
+
 ## 后续目标
 
 1. [x] 规则 schema 升级（category / showIcon / link / 粉丝牌名称匹配），兼容旧设置；
@@ -113,8 +139,9 @@ python tools/embed_rules.py
 3. [x] 成分标签可点击，跳转 B 站官方账号（手动标签跳转用户空间）；
 4. [x] 手动添加标签时从现有规则图标中选择（2.6.2）；
 5. [x] 远程规则库拉取与缓存；
-6. [—] 不实现 GitHub 图标兜底（决定：只从 B 站 CDN 加载，失败移除图标）；
-7. [ ] 远程规则的签名或完整性校验（可选）。
+6. [x] 标签 ≥4 个时折叠为 3 个 + 「更多」小窗（2.6.5）；
+7. [—] 不实现 GitHub 图标兜底（决定：只从 B 站 CDN 加载，失败移除图标）；
+8. [x] 远程规则的签名与完整性校验（2.6.5）；
 
 ## Fork / 发布流程
 
