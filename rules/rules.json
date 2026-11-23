@@ -1,0 +1,80 @@
+{
+  "schema": 1,
+  "version": "2026.11.23",
+  "updatedAt": "2026-11-23",
+  "description": "B站用户成分指示器规则库种子数据。图标使用B站官方账号头像URL，不在仓库内再分发图片。",
+  "checkers": [
+    {
+      "displayName": "永雏塔菲",
+      "category": "streamer",
+      "showIcon": false,
+      "displayIcon": "https://i1.hdslb.com/bfs/face/4907464999fbf2f2a6f9cc8b7352fceb6b3bfec3.jpg@240w_240h_1c_1s.jpg",
+      "keywords": ["谢谢喵", "taffy", "雏草姬"],
+      "followings": [1265680561],
+      "link": "https://space.bilibili.com/1265680561"
+    },
+    {
+      "displayName": "東雪蓮",
+      "category": "streamer",
+      "showIcon": false,
+      "displayIcon": "https://i0.hdslb.com/bfs/face/ced15dc126348dc42bd5c8eefdd1de5e48bdd8e6.jpg@240w_240h_1c_1s.jpg",
+      "keywords": ["東雪蓮Official", "东雪莲", "莲宝"],
+      "followings": [1437582453],
+      "link": "https://space.bilibili.com/1437582453"
+    },
+    {
+      "displayName": "原神",
+      "category": "game",
+      "showIcon": true,
+      "displayIcon": "https://i2.hdslb.com/bfs/face/d2a95376140fb1e5efbcbed70ef62891a3e5284f.jpg@240w_240h_1c_1s.jpg",
+      "keywords": ["互动抽奖 #原神", "米哈游", "#米哈游#", "#miHoYo#"],
+      "followings": [401742377, 1872522256, 1593381854],
+      "link": "https://space.bilibili.com/401742377"
+    },
+    {
+      "displayName": "星穹铁道",
+      "category": "game",
+      "showIcon": true,
+      "displayIcon": "https://i2.hdslb.com/bfs/face/e76fc676b58f23c6bd9161723f12da00c7e051c5.jpg@240w_240h_1c_1s.webp",
+      "keywords": ["互动抽奖 #崩坏星穹铁道"],
+      "followings": [1340190821],
+      "link": "https://space.bilibili.com/1340190821"
+    },
+    {
+      "displayName": "鸣潮",
+      "category": "game",
+      "showIcon": true,
+      "displayIcon": "",
+      "keywords": ["鸣潮", "漂泊者", "库洛游戏"],
+      "followings": [],
+      "link": ""
+    },
+    {
+      "displayName": "绝区零",
+      "category": "game",
+      "showIcon": true,
+      "displayIcon": "https://i0.hdslb.com/bfs/face/049b47e0e73fc5cc1564343bb0aeacce8ae8e6f8.jpg",
+      "keywords": ["互动抽奖 #绝区零"],
+      "followings": [1636034895],
+      "link": "https://space.bilibili.com/1636034895"
+    },
+    {
+      "displayName": "王者荣耀",
+      "category": "game",
+      "showIcon": true,
+      "displayIcon": "https://i2.hdslb.com/bfs/face/effbafff589a27f02148d15bca7e97031a31d772.jpg@240w_240h_1c_1s.jpg",
+      "keywords": ["互动抽奖 #王者荣耀", "王者荣耀"],
+      "followings": [57863910],
+      "link": "https://space.bilibili.com/57863910"
+    },
+    {
+      "displayName": "明日方舟",
+      "category": "game",
+      "showIcon": true,
+      "displayIcon": "https://i0.hdslb.com/bfs/face/89154378c06a5ed332c40c2ca56f50cd641c0c90.jpg@240w_240h_1c_1s.jpg",
+      "keywords": ["互动抽奖 #明日方舟", "危机合约", "《明日方舟》"],
+      "followings": [161775300],
+      "link": "https://space.bilibili.com/161775300"
+    }
+  ]
+}
