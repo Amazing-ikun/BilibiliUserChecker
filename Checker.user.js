@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         B站用户成分指示器
 // @namespace    https://github.com/klxf
-// @version      2.6.3
+// @version      2.6.4
 // @description  适配新版评论区 Shadow DOM，支持远程规则库、游戏/主播库、可点击成分标签与粉丝牌名称匹配
 // @author       klxf, trychen, miayoshi（原作者）；Shadow DOM 修复版
 // @license      GPLv3
@@ -1421,6 +1421,31 @@
 
     /* ---------------- 设置面板 ---------------- */
 
+    function ensureUiStyle() {
+        if (document.getElementById('bili-composition-ui-style')) return;
+        const style = document.createElement('style');
+        style.id = 'bili-composition-ui-style';
+        style.textContent = [
+            '#bili-composition-settings, #bili-composition-tag-editor { color-scheme: light; }',
+            '#bili-composition-settings input:not([type="checkbox"]),',
+            '#bili-composition-settings textarea,',
+            '#bili-composition-tag-editor input:not([type="checkbox"]) {',
+            '  color: #222 !important;',
+            '  -webkit-text-fill-color: #222 !important;',
+            '  background-color: #fff !important;',
+            '  caret-color: #222 !important;',
+            '  color-scheme: light;',
+            '}',
+            '#bili-composition-settings input::placeholder,',
+            '#bili-composition-settings textarea::placeholder,',
+            '#bili-composition-tag-editor input::placeholder {',
+            '  color: #999 !important;',
+            '  -webkit-text-fill-color: #999 !important;',
+            '}'
+        ].join('\n');
+        (document.head || document.documentElement).appendChild(style);
+    }
+
     function el(tag, style, text) {
         const node = document.createElement(tag);
         if (style) node.style.cssText = style;
@@ -1800,6 +1825,7 @@
     }
 
     function init() {
+        ensureUiStyle();
         try { GM_registerMenuCommand('成分检查设置', openSettings); } catch (e) {}
         try {
             GM_registerMenuCommand('切换诊断日志（开/关）', function () { setDebug(!debug); });
@@ -1828,7 +1854,7 @@
         try {
             const target = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
             target.__BSPC__ = {
-                version: '2.6.3',
+                version: '2.6.4',
                 setDebug: setDebug,
                 scan: scheduleScan,
                 refreshRules: function () { return refreshRules(true); },
@@ -1838,7 +1864,7 @@
             };
         } catch (e) {}
         refreshRules(false);
-        console.info('[B站用户成分指示器] v2.6.3 已启动 | 规则库',
+        console.info('[B站用户成分指示器] v2.6.4 已启动 | 规则库',
             rulesMeta.version, rulesMeta.count, '条 | 来源', rulesMeta.source);
     }
 
